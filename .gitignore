@@ -1,3 +1,4 @@
 .oci/
 .env
 instagram_session.json
+prompt.json
