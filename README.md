@@ -1,20 +1,20 @@
-# Unfluencer
+# Unfluencer: Comentários inúteis que ninguém precisa 
 
-Enquanto os algoritmos tradicionais priorizam a reafirmação de crenças e a validação em bolhas de concordância, o Unfluencer propõe o contrário: comentários que desafiam o senso comum de forma ética e argumentativa. 
+### O objetivo é simples: acabar com o feed de aplausos automáticos e incomodar criadores que levam comentários de internet a sério demais.
 
-Enquanto a maioria das postagens online gira em torno de elogios vazios, textões explicativos ou comentários genéricos, o Unfluencer entra em cena como um terceiro observador que lê, pensa e solta a pergunta que ninguém fez. Ele analisa postagens públicas e seus comentários, identifica contradições, bajulações exageradas ou moralismos disfarçados e responde com uma cutucada sutil. **Não distorce, não ofende, não inventa.**
+Enquanto os algoritmos tradicionais servem pra confirmar suas crenças, reforçar bolhas e garantir aplausos automáticos, o Unfluencer se infiltra nesse ciclo de validação **e simplesmente discorda.** Ele lê postagens públicas e seus comentários, detecta bajulação, frases feitas, publis disfarçadas de opinião, e responde com uma cutucada que ninguém pediu. **Sem ofensas, sem crimes. Só incômodo de qualidade.**
 
 ### 1. Cutucada Pública: *Um lembrete de que nem todo post precisa de aplauso.*
 
-O Unfluencer analisa postagens públicas, especialmente aquelas que envolvem indicações de produtos, ferramentas ou rotinas supostamente transformadoras. Com base na legenda e na imagem, a IA gera comentários que desafiam a narrativa idealizada do post. 
-
-Os comentários são provocativos, mas nunca ofensivos. O objetivo é trazer reflexão sobre o que está sendo escondido nas entrelinhas.
+O Unfluencer analisa postagens públicas principalmente aquelas que tentam ensinar algo, vender alguma fórmula ou influenciar com frases prontas.
+Ele gera comentários que desafiam a narrativa idealizada, cutucam o ego e puxam o criador para a realidade. **Ele não odeia ninguém. Só não acredita em nada.**
 
 ### 2. Advogado do Diabo: *Levanta dúvidas, joga com o contraditório.*
 
-O Unfluencer não se limita à postagem principal, ele também desce para os comentários. Aqui, a IA atua como uma voz externa que observa o que os outros estão dizendo, e responde quando vê espaço para provocação. Ela reage a comentários vazios ou exageradamente aduladores. Também cutuca quando percebe que alguém apenas repetiu o discurso do influenciador **sem questionar nada.**
+Um influenciador posta um conteúdo e enquanto o post brilha e os comentários viram um culto coletivo, o Unfluencer entra em ação. Ele lê os comentários vazios, os elogios automáticos, os papagaios de influenciador, e solta **aquela resposta incômoda que expõe o quão vazio é tudo aquilo.**
 
-#### O objetivo é simples: acabar com o feed de aplausos automáticos e incentivar criadores a sustentarem seus argumentos ou a repensarem o que estão postando.
+Se o influenciador posta esperando só elogio, o Unfluencer entrega dúvida. Se alguém comenta “perfeita”, o Unfluencer responde “tá, mas por quê?”.
+**Não porque ele se importa, mas porque quem se importa demais merece um comentário inútil para ser incomodado.**
 
 ## Especificações Técnicas
 
