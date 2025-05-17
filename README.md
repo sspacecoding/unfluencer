@@ -25,5 +25,6 @@ Se o influenciador posta esperando só elogio, o Unfluencer entrega dúvida. Se 
 
 ### ⚙️ Como rodar
 
-_Desenvolvido por influencers [@spacecoding](https://www.instagram.com/) [@santgus](https://www.instagram.com/sant.gus/) [@jorge.hen](https://www.instagram.com/jorg.hen/)_
+Para fins comerciais ou solicitações de uso, entre em contato com os criadores. O conteúdo completo da licença está disponível no arquivo [LICENSE.txt](./LICENSE.txt).
+_Desenvolvido por [@spacecoding](https://www.instagram.com/) [@santgus](https://www.instagram.com/sant.gus/) [@jorge.hen](https://www.instagram.com/jorg.hen/)_
 
