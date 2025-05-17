@@ -23,4 +23,5 @@ O Unfluencer não se limita à postagem principal, ele também desce para os com
 
 ### ⚙️ Como rodar
 
+_Desenvolvido por influencers [@spacecoding](https://www.instagram.com/) [@santgus](https://www.instagram.com/sant.gus/) [@jorge.hen](https://www.instagram.com/jorg.hen/)_
 
