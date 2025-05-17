@@ -25,6 +25,6 @@ Se o influenciador posta esperando só elogio, o Unfluencer entrega dúvida. Se 
 
 ### ⚙️ Como rodar
 
-Para fins comerciais ou solicitações de uso, entre em contato com os criadores. O conteúdo completo da licença está disponível no arquivo [LICENSE.txt](./LICENSE.txt).
+Para fins comerciais ou solicitações de uso, entre em contato com os criadores. O conteúdo completo da licença está disponível no arquivo [LICENSE](./LICENSE.txt).
 _Desenvolvido por [@spacecoding](https://www.instagram.com/) [@santgus](https://www.instagram.com/sant.gus/) [@jorge.hen](https://www.instagram.com/jorg.hen/)_
 
