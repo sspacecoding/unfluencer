@@ -8,6 +8,9 @@ import oci.generative_ai_inference.models
 import requests
 import base64
 import json
+from typing import List, Optional
+from datetime import datetime
+from instagram_mocks import MockInstagramClient
 
 # Configurar logging
 logging.basicConfig(
@@ -19,20 +22,27 @@ logger = logging.getLogger('instagram_bot')
 # Carrega as variáveis do arquivo .env
 load_dotenv()
 
+USE_MOCKS = os.getenv('USE_MOCKS', 'false').lower() == 'true'
+session_file = 'instagram_session.json'
+
 def carregar_prompt():
     try:
         with open('prompt.json', 'r', encoding='utf-8') as f:
             prompt_data = json.load(f)
             return prompt_data['prompt']
     except Exception as e:
-        logger.error(f"Erro ao carregar prompt.json: {str(e)}")
+        logger.info(f"Não foi possível carregar prompt.json: {str(e)}")
         return None
+
+def carregar_usuarios() -> List[str]:
+    """Carrega a lista de usuários do arquivo .env"""
+    usuarios = os.getenv('INSTAGRAM_USERS', '').split(',')
+    return [user.strip() for user in usuarios if user.strip()]
 
 usuario = os.getenv('INSTAGRAM_USER')
 senha = os.getenv('INSTAGRAM_PASSWORD')
 url_do_post = os.getenv('INSTAGRAM_POST_URL')
 comentario = os.getenv('INSTAGRAM_COMMENT')
-session_file = 'instagram_session.json'
 
 config = {
     "user": os.getenv('OCI_USER'),
@@ -44,6 +54,7 @@ config = {
 
 try:
     if not os.path.exists(config["key_file"]):
+        logger.info(f"Arquivo de chave não encontrado: {config['key_file']}")
         raise FileNotFoundError(f"Arquivo de chave não encontrado: {config['key_file']}")
     
     logger.info("Tentando inicializar cliente OCI com as seguintes configurações:")
@@ -64,11 +75,11 @@ try:
     )
     logger.info("Cliente OCI inicializado com sucesso!")
 except FileNotFoundError as e:
-    logger.error(f"Erro de arquivo: {str(e)}")
+    logger.info(f"Arquivo não encontrado: {str(e)}")
     oci_client = None
 except Exception as e:
-    logger.error(f"Erro ao inicializar cliente OCI: {str(e)}")
-    logger.error(f"Tipo do erro: {type(e).__name__}")
+    logger.info(f"Não foi possível inicializar cliente OCI: {str(e)}")
+    logger.info(f"Tipo do erro: {type(e).__name__}")
     oci_client = None
 
 def time_execution(func_name):
@@ -108,6 +119,49 @@ def realizar_login(client, username, password):
         logger.error(f"Erro ao fazer login: {e}")
         return False
 
+@time_execution("Obtenção do último post")
+def obter_ultimo_post_foto(client, username: str):
+    """Obtém o último post que seja uma foto do usuário especificado"""
+    try:
+        logger.info(f"Buscando posts do usuário {username}")
+        user_id = client.user_id_from_username(username)
+        logger.info(f"ID do usuário: {user_id}")
+        
+        medias = client.user_medias(user_id, 20)  # Busca os últimos 20 posts
+        logger.info(f"Total de posts encontrados: {len(medias)}")
+        
+        for i, media in enumerate(medias, 1):
+            logger.info(f"\nAnalisando post {i}:")
+            logger.info(f"Tipo de mídia: {media.media_type}")
+            logger.info(f"Legenda: {media.caption_text[:100]}...")
+            
+            # Verifica se é uma foto (media_type 1) ou carrossel (media_type 8)
+            if media.media_type in [1, 8]:
+                # Se for carrossel, verifica se tem recursos e se o primeiro é uma foto
+                if media.media_type == 8:
+                    logger.info("Post é um carrossel")
+                    if hasattr(media, 'resources') and media.resources:
+                        first_resource = media.resources[0]
+                        logger.info(f"Primeiro recurso do carrossel - Tipo: {first_resource.media_type}")
+                        if first_resource.media_type == 1:  # Verifica se a primeira mídia é uma foto
+                            logger.info("Carrossel válido encontrado (primeira mídia é foto)")
+                            return media
+                    else:
+                        logger.info("Carrossel sem recursos")
+                # Se for uma foto única, retorna direto
+                elif media.media_type == 1:
+                    logger.info("Foto única encontrada")
+                    return media
+            else:
+                logger.info(f"Post ignorado - tipo de mídia não suportado: {media.media_type}")
+                
+        logger.info(f"Nenhuma foto encontrada para o usuário {username}")
+        return None
+    except Exception as e:
+        logger.info(f"Não foi possível obter posts do usuário {username}: {e}")
+        logger.info(f"Tipo do erro: {type(e).__name__}")
+        return None
+
 @time_execution("Obtenção do ID do post")
 def obter_id_post(client, url):
     return client.media_pk_from_url(url)
@@ -128,20 +182,87 @@ def comentar_post(client, media_id, texto):
 def responder_comentario(client, media_id, comentario_id, texto):
     return client.media_comment(media_id, texto, replied_to_comment_id=comentario_id)
 
+@time_execution("Análise de imagem")
+def analisar_imagem(media_info) -> str:
+    """Analisa a imagem e legenda do post usando o Llama."""
+    if oci_client is None:
+        return "Cliente OCI não inicializado"
+    
+    try:
+        if hasattr(media_info, 'resources') and media_info.resources:
+            image_url = media_info.resources[0].thumbnail_url
+            logger.info("Post é um carrossel, analisando primeira imagem")
+        else:
+            image_url = media_info.thumbnail_url
+            logger.info("Post é uma imagem única")
+            
+        try:
+            response = requests.get(image_url)
+            response.raise_for_status()
+            image_data = response.content
+            base64_image = base64.b64encode(image_data).decode("utf-8")
+            base64_image_url = f"data:image/jpeg;base64,{base64_image}"
+        except Exception as e:
+            logger.info(f"Não foi possível processar imagem: {str(e)}")
+            return f"Não foi possível processar imagem: {str(e)}"
+        
+        prompt_text = """Analise esta imagem e sua legenda. Descreva em detalhes:
+1. O que você vê na imagem
+2. O contexto da legenda
+3. O tom e estilo do post
+4. Elementos visuais importantes
+
+Legenda: {legenda}"""
+
+        texto = oci.generative_ai_inference.models.TextContent(
+            text=prompt_text.format(legenda=media_info.caption_text)
+        )
+        
+        imagem = oci.generative_ai_inference.models.ImageContent(
+            image_url=oci.generative_ai_inference.models.ImageUrl(url=base64_image_url)
+        )
+        
+        mensagem = oci.generative_ai_inference.models.UserMessage(
+            role="USER",
+            content=[texto, imagem]
+        )
+
+        chat_request = oci.generative_ai_inference.models.GenericChatRequest(
+            api_format="GENERIC",
+            messages=[mensagem],
+            num_generations=1,
+            is_stream=False,
+            max_tokens=600,
+            temperature=0.7,
+            frequency_penalty=0,
+            presence_penalty=0,
+            top_p=0.5,
+            top_k=1
+        )
+
+        chat_detail = oci.generative_ai_inference.models.ChatDetails(
+            compartment_id=os.getenv('OCI_COMPARTMENT_ID'),
+            serving_mode=oci.generative_ai_inference.models.OnDemandServingMode(
+                model_id="meta.llama-3.2-90b-vision-instruct"
+            ),
+            chat_request=chat_request
+        )
+
+        chat_response = oci_client.chat(chat_detail)
+        
+        if chat_response and chat_response.data and chat_response.data.chat_response:
+            choices = chat_response.data.chat_response.choices
+            if choices and len(choices) > 0:
+                return choices[0].message.content[0].text.strip()
+        
+        return "Não foi possível analisar a imagem"
+        
+    except Exception as e:
+        return f"Erro na análise: {str(e)}"
+
 @time_execution("Geração de resposta")
 def gerar_resposta(comentario_texto: str, media_info) -> str:
-    """Gera uma resposta usando o modelo Llama via OCI.
-
-    Args:
-        comentario_texto (str): O texto do comentário para gerar a resposta.
-        media_info: Informações do post do Instagram, incluindo imagem.
-
-    Returns:
-        str: A resposta gerada pelo modelo Llama.
-
-    Raises:
-        Exception: Se houver erro na comunicação com a API OCI.
-    """
+    """Gera uma resposta usando o modelo Llama via OCI."""
     if oci_client is None:
         erro = "Cliente OCI não inicializado"
         logger.error(erro)
@@ -151,12 +272,18 @@ def gerar_resposta(comentario_texto: str, media_info) -> str:
         logger.info("Iniciando geração de resposta...")
         logger.info(f"Comentário recebido: {comentario_texto}")
         
-        # Carrega o prompt do arquivo JSON
+        # Primeiro, faz a análise da imagem
+        print("\n🔍 Analisando imagem e legenda...")
+        analise = analisar_imagem(media_info)
+        print("\n📊 Análise do post:")
+        print("=" * 50)
+        print(analise)
+        print("=" * 50)
+        
         prompt_data = carregar_prompt()
         if not prompt_data:
             return "Erro: Não foi possível carregar o prompt"
         
-        # Obtém a URL da primeira imagem do carrossel
         if hasattr(media_info, 'resources') and media_info.resources:
             image_url = media_info.resources[0].thumbnail_url
             logger.info("Post é um carrossel, usando primeira imagem")
@@ -173,22 +300,37 @@ def gerar_resposta(comentario_texto: str, media_info) -> str:
             base64_image = base64.b64encode(image_data).decode("utf-8")
             base64_image_url = f"data:image/jpeg;base64,{base64_image}"
             
-            print("\n🖼️ Base64 da imagem:")
-            print("=" * 50)
-            print(base64_image[:100] + "..." if len(base64_image) > 100 else base64_image)
-            print("=" * 50)
-            print(f"Tamanho do base64: {len(base64_image)} caracteres")
-            
             logger.info("Imagem convertida para base64 com sucesso")
         except Exception as e:
-            logger.error(f"Erro ao processar imagem: {str(e)}")
-            return f"Erro ao processar imagem: {str(e)}"
+            logger.info(f"Não foi possível processar imagem: {str(e)}")
+            return f"Não foi possível processar imagem: {str(e)}"
         
-        # Constrói o prompt completo
+        # Limpa apenas emojis e caracteres não desejados, mantendo acentos
+        import re
+        # Remove emojis e outros caracteres especiais não desejados
+        emoji_pattern = re.compile("["
+            u"\U0001F600-\U0001F64F"  # emoticons
+            u"\U0001F300-\U0001F5FF"  # símbolos & pictogramas
+            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+            u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+            u"\U00002702-\U000027B0"
+            u"\U000024C2-\U0001F251"
+            "]+", flags=re.UNICODE)
+        
+        comentario_limpo = emoji_pattern.sub('', comentario_texto)
+        logger.info(f"Comentário após limpeza: {comentario_limpo}")
+        
+        # Constrói o prompt completo incluindo a análise
         prompt_text = "\n".join(prompt_data['instructions'])
-        prompt_text += "\n\n" + prompt_data['comment_template'].format(comment=comentario_texto)
+        prompt_text += "\n\nAnálise do post:\n" + analise
+        prompt_text += "\n\n" + prompt_data['comment_template'].format(comment=comentario_limpo)
         
-        print("\n📝 Prompt enviado para o Llama:")
+        print("\n📝 Comentário que será enviado para o Llama:")
+        print("=" * 50)
+        print(comentario_limpo)
+        print("=" * 50)
+        
+        print("\n📋 Prompt completo que será enviado para o Llama:")
         print("=" * 50)
         print(prompt_text)
         print("=" * 50)
@@ -239,6 +381,28 @@ def gerar_resposta(comentario_texto: str, media_info) -> str:
         )
         logger.info("Chat details configurados")
 
+        print("\n📤 Request completo para o Llama:")
+        print("=" * 50)
+        print(f"Compartment ID: {chat_detail.compartment_id}")
+        print(f"Model ID: {chat_detail.serving_mode.model_id}")
+        print("\nMensagens:")
+        for msg in chat_request.messages:
+            print(f"\nRole: {msg.role}")
+            for content in msg.content:
+                if hasattr(content, 'text'):
+                    print(f"Texto completo:")
+                    print("-" * 50)
+                    print(content.text)
+                    print("-" * 50)
+                if hasattr(content, 'image_url'):
+                    print(f"URL da imagem: {content.image_url.url[:100]}...")
+        print("\nConfigurações:")
+        print(f"Max tokens: {chat_request.max_tokens}")
+        print(f"Temperature: {chat_request.temperature}")
+        print(f"Top P: {chat_request.top_p}")
+        print(f"Top K: {chat_request.top_k}")
+        print("=" * 50)
+
         logger.info("Fazendo chamada para a API...")
         chat_response = oci_client.chat(chat_detail)
         logger.info("Resposta recebida da API")
@@ -261,14 +425,7 @@ def gerar_resposta(comentario_texto: str, media_info) -> str:
         return f"Erro: {erro}"
 
 def confirmar_resposta(resposta: str) -> bool:
-    """Solicita confirmação do usuário antes de enviar a resposta.
-
-    Args:
-        resposta (str): A resposta gerada que será enviada.
-
-    Returns:
-        bool: True se o usuário confirmar, False se cancelar.
-    """
+    """Solicita confirmação do usuário antes de enviar a resposta."""
     print("\n🤖 Resposta gerada:")
     print("=" * 50)
     print(resposta)
@@ -281,11 +438,7 @@ def confirmar_resposta(resposta: str) -> bool:
         print("Por favor, responda com 'yes' ou 'no'")
 
 def escolher_modo_comentario() -> str:
-    """Permite ao usuário escolher o modo de comentário.
-
-    Returns:
-        str: '1' para comentar em um comentário específico, '2' para comentar no post.
-    """
+    """Permite ao usuário escolher o modo de comentário."""
     print("\n📝 Escolha o modo de comentário:")
     print("1. Comentar em um comentário específico")
     print("2. Comentar diretamente no post")
@@ -297,14 +450,7 @@ def escolher_modo_comentario() -> str:
         print("Por favor, digite 1 ou 2")
 
 def escolher_comentario(comentarios: list) -> object:
-    """Permite ao usuário escolher um comentário da lista.
-
-    Args:
-        comentarios (list): Lista de comentários disponíveis.
-
-    Returns:
-        object: O comentário escolhido ou None se o usuário cancelar.
-    """
+    """Permite ao usuário escolher um comentário da lista."""
     print("\n💬 Comentários disponíveis:")
     print("=" * 50)
     for i, comentario in enumerate(comentarios, 1):
@@ -322,36 +468,22 @@ def escolher_comentario(comentarios: list) -> object:
         except ValueError:
             print("Por favor, digite um número válido")
 
-def main():
-    logger.info("=== INICIANDO O PROGRAMA ===")
-    total_start = time.time()
-    
-    cl = Client()
-    
-    if not realizar_login(cl, usuario, senha):
-        logger.error("Falha ao fazer login! Verificar credenciais.")
-        return
+def processar_usuario(client, username: str):
+    """Processa um usuário específico, obtendo seu último post e interagindo com ele."""
+    logger.info(f"Processando usuário: {username}")
     
     try:
-        media_id = obter_id_post(cl, url_do_post)
-        logger.info(f"ID do post: {media_id}")
-    except Exception as e:
-        logger.error(f"Erro ao obter ID do post: {e}")
-        return
-    
-    try:
-        media_info = obter_info_post(cl, media_id)
-    except Exception as e:
-        logger.error(f"Erro ao obter informações do post: {e}")
-        return
-    
-    print("\n📝 Descrição do Post:")
-    print("=" * 50)
-    print(media_info.caption_text)
-    print("=" * 50)
-    
-    try:
-        comentarios = obter_comentarios(cl, media_id)
+        media_info = obter_ultimo_post_foto(client, username)
+        if not media_info:
+            logger.info(f"Nenhum post de foto encontrado para {username}")
+            return
+        
+        print(f"\n📝 Post de {username}:")
+        print("=" * 50)
+        print(media_info.caption_text)
+        print("=" * 50)
+        
+        comentarios = obter_comentarios(client, media_info.pk)
         
         modo = escolher_modo_comentario()
         
@@ -363,7 +495,7 @@ def main():
                     
                     if confirmar_resposta(resposta):
                         resposta = resposta.replace('"', '').replace("'", "")
-                        result = responder_comentario(cl, media_id, comentario_escolhido.pk, resposta)
+                        result = responder_comentario(client, media_info.pk, comentario_escolhido.pk, resposta)
                         print("\n✅ Resposta enviada com sucesso!")
                         logger.info(f"Resposta publicada com ID: {result.pk}")
                     else:
@@ -373,13 +505,12 @@ def main():
                     print("\n❌ Falha ao enviar resposta!")
             else:
                 print("\n❌ Nenhum comentário selecionado!")
-                
         else:
             try:
                 resposta = gerar_resposta(media_info.caption_text, media_info)
                 
                 if confirmar_resposta(resposta):
-                    result = comentar_post(cl, media_id, resposta)
+                    result = comentar_post(client, media_info.pk, resposta)
                     print("\n✅ Comentário enviado com sucesso!")
                     logger.info(f"Comentário publicado com ID: {result.pk}")
                 else:
@@ -387,10 +518,51 @@ def main():
             except Exception as e:
                 logger.error(f"Erro ao publicar comentário: {e}")
                 print("\n❌ Falha ao enviar comentário!")
-            
+                
     except Exception as e:
-        logger.error(f"Erro ao obter comentários: {e}")
-        print("\n❌ Falha ao obter comentários!")
+        logger.error(f"Erro ao processar usuário {username}: {e}")
+        print(f"\n❌ Falha ao processar usuário {username}!")
+
+def main():
+    logger.info("=== INICIANDO O PROGRAMA ===")
+    total_start = time.time()
+    
+    # Carrega lista de usuários
+    usuarios = carregar_usuarios()
+    if not usuarios:
+        logger.error("Nenhum usuário encontrado na configuração!")
+        return
+    
+    print(f"\n👥 Usuários carregados: {len(usuarios)}")
+    for i, user in enumerate(usuarios, 1):
+        print(f"{i}. {user}")
+    
+    if USE_MOCKS:
+        logger.info("Usando mocks para simulação")
+        cl = MockInstagramClient()
+    else:
+        cl = Client()
+        # Configuração do dispositivo
+        cl.set_device({
+            "app_version": "219.0.0.12.117",
+            "android_version": 0,
+            "android_release": "0",
+            "dpi": "640dpi",
+            "resolution": "1242x2688",
+            "manufacturer": "Apple",
+            "device": "iPhone",
+            "model": "iPhone XS",
+            "cpu": "apple"
+        })
+    
+    if not realizar_login(cl, usuario, senha):
+        logger.error("Falha ao fazer login! Verificar credenciais.")
+        return
+    
+    # Processa cada usuário da lista
+    for username in usuarios:
+        processar_usuario(cl, username)
+        print("\n" + "="*50 + "\n")
     
     total_time = time.time() - total_start
     logger.info(f"=== PROGRAMA CONCLUÍDO EM {total_time:.2f} SEGUNDOS ===")
