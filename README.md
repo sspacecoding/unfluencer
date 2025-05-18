@@ -16,8 +16,6 @@ Um influenciador posta um conteúdo e enquanto o post brilha e os comentários v
 Se o influenciador posta esperando só elogio, o Unfluencer entrega dúvida. Se alguém comenta “perfeita”, o Unfluencer responde “tá, mas por quê?”.
 **Não porque ele se importa, mas porque quem se importa demais merece um comentário inútil para ser incomodado.**
 
-[Saiba mais detalhes sobre o projeto na página oficial.](https://roan-asphalt-23d.notion.site/Unfluencer-1f6e40c8a60f8009926efd9f0b747b9b)
-
 ## Como rodar o Unfluencer
 
 Para testar o Unfluencer na sua máquina, você precisará configurar duas coisas: uma conta de Instagram e uma conta na Oracle Cloud.
