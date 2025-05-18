@@ -2,3 +2,5 @@
 .env
 instagram_session.json
 prompt.json
+__pycache__/
+*.pyc

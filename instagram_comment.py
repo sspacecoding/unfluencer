@@ -8,6 +8,7 @@ import oci.generative_ai_inference.models
 import requests
 import base64
 import json
+from instagram_mocks import MockInstagramClient
 
 # Configurar logging
 logging.basicConfig(
@@ -18,6 +19,8 @@ logger = logging.getLogger('instagram_bot')
 
 # Carrega as variáveis do arquivo .env
 load_dotenv()
+
+USE_MOCKS = os.getenv('USE_MOCKS', 'false').lower() == 'true'
 
 def carregar_prompt():
     try:
@@ -239,6 +242,25 @@ def gerar_resposta(comentario_texto: str, media_info) -> str:
         )
         logger.info("Chat details configurados")
 
+        print("\n📤 Request completo para o Llama:")
+        print("=" * 50)
+        print(f"Compartment ID: {chat_detail.compartment_id}")
+        print(f"Model ID: {chat_detail.serving_mode.model_id}")
+        print("\nMensagens:")
+        for msg in chat_request.messages:
+            print(f"\nRole: {msg.role}")
+            for content in msg.content:
+                if hasattr(content, 'text'):
+                    print(f"Texto: {content.text[:200]}..." if len(content.text) > 200 else f"Texto: {content.text}")
+                if hasattr(content, 'image_url'):
+                    print(f"URL da imagem: {content.image_url.url[:100]}...")
+        print("\nConfigurações:")
+        print(f"Max tokens: {chat_request.max_tokens}")
+        print(f"Temperature: {chat_request.temperature}")
+        print(f"Top P: {chat_request.top_p}")
+        print(f"Top K: {chat_request.top_k}")
+        print("=" * 50)
+
         logger.info("Fazendo chamada para a API...")
         chat_response = oci_client.chat(chat_detail)
         logger.info("Resposta recebida da API")
@@ -326,7 +348,23 @@ def main():
     logger.info("=== INICIANDO O PROGRAMA ===")
     total_start = time.time()
     
-    cl = Client()
+    if USE_MOCKS:
+        logger.info("Usando mocks para simulação")
+        cl = MockInstagramClient()
+    else:
+        cl = Client()
+        # Configuração do dispositivo
+        cl.set_device({
+            "app_version": "219.0.0.12.117",
+            "android_version": 0,
+            "android_release": "0",
+            "dpi": "640dpi",
+            "resolution": "1242x2688",
+            "manufacturer": "Apple",
+            "device": "iPhone",
+            "model": "iPhone XS",
+            "cpu": "apple"
+        })
     
     if not realizar_login(cl, usuario, senha):
         logger.error("Falha ao fazer login! Verificar credenciais.")
