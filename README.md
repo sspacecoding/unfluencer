@@ -6,8 +6,9 @@ Enquanto os algoritmos tradicionais servem pra confirmar suas crenças, reforça
 
 ### 1. Cutucada Pública: *Um lembrete de que nem todo post precisa de aplauso.*
 
-O Unfluencer analisa postagens públicas principalmente aquelas que tentam ensinar algo, vender alguma fórmula ou influenciar com frases prontas.
-Ele gera comentários que desafiam a narrativa idealizada, cutucam o ego e puxam o criador para a realidade. **Ele não odeia ninguém. Só não acredita em nada.**
+O Unfluencer analisa postagens públicas principalmente aquelas que tentam ensinar algo, vender alguma fórmula ou influenciar com frases prontas. 
+Ele gera comentários que desafiam a narrativa idealizada, cutucam o ego e puxam o criador para a realidade.  Mas ele não para por aí: também comenta nas postagens de **pessoas comuns**, que só estavam ali vivendo suas vidas, postando o almoço, ou sendo cronicamente online.  
+**Ninguém está a salvo.** **Ele não odeia ninguém. Só não acredita em nada.**
 
 ### 2. Advogado do Diabo: *Levanta dúvidas, joga com o contraditório.*
 
